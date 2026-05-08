@@ -8,8 +8,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Configuración de la base de datos profesional (MySQL)
-// Datos obtenidos de tu configuración en Hostinger
+// Configuración de conexión a MySQL de Hostinger
 const db = mysql.createConnection({
     host: 'localhost',
     user: 'u685372918_tuttifrutti',
@@ -22,32 +21,39 @@ db.connect((err) => {
         console.error('Error conectando a MySQL:', err);
         return;
     }
-    console.log('Conectado a la base de datos u685372918_tuttifrutti');
+    console.log('Base de datos conectada correctamente');
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Lógica de Salas y Juego en Tiempo Real
-io.on('connection', (socket) => {
-    console.log('Usuario conectado:', socket.id);
+// Letras permitidas para el juego
+const letrasValidas = "ABCDEFGHILMNOPQRSTUV";
 
+io.on('connection', (socket) => {
+    console.log('Nueva conexión:', socket.id);
+
+    // Unirse a una sala específica
     socket.on('join-room', (data) => {
-        const { nombre, sala } = data;
-        socket.join(sala);
-        console.log(`${nombre} se unió a la sala: ${sala}`);
-        
-        // Notificar a los demás en la sala
-        socket.to(sala).emit('user-joined', nombre);
+        socket.join(data.sala);
+        console.log(`${data.nombre} entró a la sala: ${data.sala}`);
     });
 
+    // Iniciar ronda y repartir letra a la sala
+    socket.on('empezar-ronda', (data) => {
+        const letraRandom = letrasValidas[Math.floor(Math.random() * letrasValidas.length)];
+        // Enviamos la letra solo a los miembros de esa sala
+        io.to(data.sala).emit('ronda-iniciada', letraRandom);
+    });
+
+    // Evento de ¡BASTA!
     socket.on('basta', (data) => {
-        // Cuando alguien dice "¡Basta!", se le avisa a toda la sala al instante
+        // Bloqueamos a todos en la sala
         io.to(data.sala).emit('stop-game', { ganador: data.nombre });
         
-        // Guardar el ganador en la base de datos (Ranking)
-        const query = 'INSERT INTO ranking (nombre, sala, puntos) VALUES (?, ?, ?)';
-        db.query(query, [data.nombre, data.sala, 10], (err) => {
-            if (err) console.error('Error al guardar puntaje:', err);
+        // Guardamos el registro profesional en la base de datos
+        const sql = 'INSERT INTO ranking (nombre, sala, puntos) VALUES (?, ?, ?)';
+        db.query(sql, [data.nombre, data.sala, 100], (err) => {
+            if (err) console.error('Error al insertar en ranking:', err);
         });
     });
 
@@ -58,5 +64,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`Servidor corriendo en puerto ${PORT}`);
+    console.log('Servidor Tutti Frutti Pro corriendo en puerto ' + PORT);
 });
