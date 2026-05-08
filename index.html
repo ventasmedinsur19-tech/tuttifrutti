@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TuttiFrutti Familiar</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #f0f2f5; }
+        .container { padding: 20px; }
+        input { display: block; margin: 10px auto; padding: 10px; width: 80%; }
+        button { padding: 15px 30px; background: #6200ee; color: white; border: none; border-radius: 5px; font-size: 18px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Tutti Frutti</h1>
+        <div id="setup">
+            <input type="text" id="username" placeholder="Tu Nombre">
+            <button onclick="unirse()">Unirse a la partida</button>
+        </div>
+        <div id="game" style="display:none;">
+            <h2 id="letra">Esperando letra...</h2>
+            <input type="text" placeholder="Nombre">
+            <input type="text" placeholder="Color">
+            <input type="text" placeholder="Fruta/Verdura">
+            <button onclick="basta()">¡BASTA!</button>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        function unirse() {
+            const nombre = document.getElementById('username').value;
+            if(nombre) {
+                document.getElementById('setup').style.display = 'none';
+                document.getElementById('game').style.display = 'block';
+                socket.emit('nuevo-jugador', nombre);
+            }
+        }
+        function basta() {
+            socket.emit('presionó-basta');
+        }
+        socket.on('bloquear-todo', () => {
+            alert('¡Alguien dijo BASTA! Se acabó el tiempo.');
+            const inputs = document.querySelectorAll('input');
+            inputs.forEach(i => i.disabled = true);
+        });
+    </script>
+</body>
+</html>
+
