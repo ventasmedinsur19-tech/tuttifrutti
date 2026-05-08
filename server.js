@@ -4,14 +4,22 @@ const http = require('http').Server(app);
 const io = require('socket.io')(http);
 const path = require('path');
 
-// Servir archivos estáticos (el HTML que haremos después)
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.get('/', (req, res) => {
-  res.send('<h1>¡Servidor de TuttiFrutti Funcionando!</h1>');
+io.on('connection', (socket) => {
+  console.log('Alguien se conectó');
+
+  socket.on('nuevo-jugador', (nombre) => {
+    console.log(nombre + ' se unió al juego');
+  });
+
+  socket.on('presionó-basta', () => {
+    // Esto le avisa a TODOS los que estén conectados
+    io.emit('bloquear-todo');
+  });
 });
 
 const PORT = process.env.PORT || 3000;
 http.listen(PORT, () => {
-  console.log('Servidor corriendo en puerto ' + PORT);
+  console.log('Servidor de TuttiFrutti listo');
 });
