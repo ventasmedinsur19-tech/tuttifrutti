@@ -1,46 +1,62 @@
 const express = require('express');
-const app = express();
-const http = require('http').Server(app);
-const io = require('socket.io')(http);
+const http = require('http');
+const { Server } = require('socket.io');
+const mysql = require('mysql2');
 const path = require('path');
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
+
+// Configuración de la base de datos profesional (MySQL)
+// Datos obtenidos de tu configuración en Hostinger
+const db = mysql.createConnection({
+    host: 'localhost',
+    user: 'u685372918_tuttifrutti',
+    password: 'Tuttifrutti26!', 
+    database: 'u685372918_tuttifrutti'
+});
+
+db.connect((err) => {
+    if (err) {
+        console.error('Error conectando a MySQL:', err);
+        return;
+    }
+    console.log('Conectado a la base de datos u685372918_tuttifrutti');
+});
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-let gameState = {
-    letra: "",
-    jugadores: {},
-    juegoActivo: false
-};
-
-const letras = "ABCDEFGHIJKLMNOPRSTUV";
-
+// Lógica de Salas y Juego en Tiempo Real
 io.on('connection', (socket) => {
-    // Al conectarse, enviamos el estado actual al nuevo jugador
-    socket.emit('init', gameState);
+    console.log('Usuario conectado:', socket.id);
 
-    socket.on('unirse', (nombre) => {
-        gameState.jugadores[socket.id] = { nombre, listo: true };
-        io.emit('actualizar-jugadores', Object.values(gameState.jugadores));
+    socket.on('join-room', (data) => {
+        const { nombre, sala } = data;
+        socket.join(sala);
+        console.log(`${nombre} se unió a la sala: ${sala}`);
+        
+        // Notificar a los demás en la sala
+        socket.to(sala).emit('user-joined', nombre);
     });
 
-    socket.on('empezar-ronda', () => {
-        if (!gameState.juegoActivo) {
-            gameState.juegoActivo = true;
-            gameState.letra = letras[Math.floor(Math.random() * letras.length)];
-            io.emit('ronda-iniciada', gameState.letra);
-        }
-    });
-
-    socket.on('basta', () => {
-        gameState.juegoActivo = false;
-        io.emit('bloquear-y-recaudar', { ganador: gameState.jugadores[socket.id]?.nombre });
+    socket.on('basta', (data) => {
+        // Cuando alguien dice "¡Basta!", se le avisa a toda la sala al instante
+        io.to(data.sala).emit('stop-game', { ganador: data.nombre });
+        
+        // Guardar el ganador en la base de datos (Ranking)
+        const query = 'INSERT INTO ranking (nombre, sala, puntos) VALUES (?, ?, ?)';
+        db.query(query, [data.nombre, data.sala, 10], (err) => {
+            if (err) console.error('Error al guardar puntaje:', err);
+        });
     });
 
     socket.on('disconnect', () => {
-        delete gameState.jugadores[socket.id];
-        io.emit('actualizar-jugadores', Object.values(gameState.jugadores));
+        console.log('Usuario desconectado');
     });
 });
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => console.log(`Puerto: ${PORT}`));
+server.listen(PORT, () => {
+    console.log(`Servidor corriendo en puerto ${PORT}`);
+});
